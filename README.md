@@ -28,7 +28,7 @@ wsp --version
 wsp new <dir> [repo...]        # 建工作区，可顺手把仓库链进来
 wsp setup <dir>                # 设默认根目录，不存在会创建
 wsp config [--json]            # 查看全局配置
-wsp add <dir> [--as name]      # 加一个目录或文件
+wsp add <dir>... [--as name]   # 一次加多个目录
                 [--relative]   # 存相对链接，整个工作区可以打包搬走
 wsp ls [--json]                # 成员和链接状态
 wsp ls --all [--json]          # 默认根目录下的所有工作区
@@ -42,6 +42,8 @@ wsp agents                     # 重新生成 AGENTS.md 里的托管块
 ```
 
 查找工作区的顺序：`--ws <dir>` → `$WSP_WORKSPACE` → 从当前目录向上找 `.wsp.json`。
+
+`wsp add` 一次可以接多个目录。其中一个失败不会影响其他：成功的照常建链，失败的在 stderr 逐行列出，退出码是 1。`--as` 只能配单个目标，否则名字会撞在一起。
 
 ## 默认根目录
 

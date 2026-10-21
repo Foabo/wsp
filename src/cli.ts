@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import path from "node:path";
 
-import { addMember, createWorkspace, doctor, memberStatuses, removeMember } from "./core/workspace.ts";
+import { addMany, createWorkspace, doctor, memberStatuses, removeMember } from "./core/workspace.ts";
 import { readManifest, type Manifest } from "./core/manifest.ts";
 import { findWorkspaceRoot, realpathOrNull } from "./core/paths.ts";
 import { writeAgentsFile } from "./core/agents.ts";
@@ -12,7 +12,7 @@ import { scanWorkspaces, findWorkspace, type WorkspaceEntry } from "./core/regis
 import { pick } from "./core/picker.ts";
 import { describeGit, readGitInfo } from "./core/git.ts";
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 const VALUE_FLAGS = new Set(["ws", "as"]);
 
 class UsageError extends Error {}
@@ -122,9 +122,7 @@ function cmdNew(positional: string[], flags: Record<string, string | true>): num
   const targets = positional.slice(1).map((target) => path.resolve(expandHome(target)));
 
   const result = createWorkspace(abs);
-  const added = targets.map((target) =>
-    addMember(abs, target, { relative: flags.relative === true }),
-  );
+  const { added, failed } = addMany(abs, targets, { relative: flags.relative === true });
   const agents = writeAgentsFile(abs, readManifest(abs));
   const code = writeCodeWorkspace(abs, readManifest(abs));
 
@@ -143,32 +141,46 @@ function cmdNew(positional: string[], flags: Record<string, string | true>): num
   console.log(`  agents    ${agents.path}`);
   console.log(`  code      ${code}`);
   console.log("");
-  console.log(added.length > 0 ? `next: cd ${quote(abs)}` : `next: cd ${quote(abs)} && wsp add <repo>`);
-  return 0;
+  console.log(added.length > 0 ? `next: cd ${quote(abs)}` : `next: cd ${quote(abs)} && wsp add <repo>...`);
+
+  for (const failure of failed) reportAddFailure(failure);
+  return failed.length > 0 ? 1 : 0;
+}
+
+function reportAddFailure(failure: { target: string; message: string }): void {
+  // Most addMember errors already name the target; avoid "path: ... path".
+  const named = failure.message.includes(failure.target);
+  process.stderr.write(`wsp: ${named ? "" : `${failure.target}: `}${failure.message}\n`);
 }
 
 function cmdAdd(positional: string[], flags: Record<string, string | true>): number {
-  const target = positional[0];
-  if (!target) throw new UsageError("add needs a target: wsp add <dir> [--as name] [--relative]");
+  if (positional.length === 0) throw new UsageError("add needs a target: wsp add <dir> [<dir>...]");
+  if (positional.length > 1 && typeof flags.as === "string") {
+    throw new UsageError("--as works with a single target");
+  }
 
+  const targets = positional.map((target) => path.resolve(expandHome(target)));
   const ws = resolveWs(flags);
-  const result = addMember(ws, target, {
+  const { added, failed } = addMany(ws, targets, {
     ...(typeof flags.as === "string" ? { as: flags.as } : {}),
     relative: flags.relative === true,
   });
-  refresh(ws);
+  if (added.length > 0) refresh(ws);
 
-  if (result.alreadyMember) {
-    console.log(`already a member: ${result.member.name} -> ${result.member.target}`);
-  } else {
+  for (const result of added) {
+    if (result.alreadyMember) {
+      console.log(`already a member: ${result.member.name} -> ${result.member.target}`);
+      continue;
+    }
     console.log(`added ${result.member.name} -> ${result.member.target}`);
     if (result.renamedFrom) {
       console.log(`note: ${result.renamedFrom} was taken, used ${result.member.name}`);
     }
   }
   console.log(`workspace ${ws}`);
-  console.log(`link      ${path.join(ws, result.member.name)} (${result.member.link})`);
-  return 0;
+
+  for (const failure of failed) reportAddFailure(failure);
+  return failed.length > 0 ? 1 : 0;
 }
 
 function formatTime(iso: string): string {
@@ -235,7 +247,7 @@ function cmdLs(flags: Record<string, string | true>): number {
 
   console.log(`${manifest.name}  ${ws}`);
   if (statuses.length === 0) {
-    console.log("  (no members)  add one: wsp add <repo>");
+    console.log("  (no members)  add one: wsp add <repo>...");
     return 0;
   }
 
@@ -423,7 +435,7 @@ function help(): string {
     "  wsp new <dir> [repo...]           create a workspace, optionally linking repos",
     "  wsp setup <dir>                   set the default root for new workspaces",
     "  wsp config [--json]               show the global configuration",
-    "  wsp add <dir> [--as name]         link a repository into the workspace",
+    "  wsp add <dir>... [--as name]      link repositories into the workspace",
     "                    [--relative]    store a relative link (movable as a bundle)",
     "  wsp ls [--json]                   list members and link state",
     "  wsp ls --all [--json]             list workspaces under the default root",

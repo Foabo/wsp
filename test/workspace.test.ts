@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { addMember, createWorkspace, doctor, memberStatuses, removeMember } from "../src/core/workspace.ts";
+import { addMany, addMember, createWorkspace, doctor, memberStatuses, removeMember } from "../src/core/workspace.ts";
 import { readManifest } from "../src/core/manifest.ts";
 import { writeAgentsFile } from "../src/core/agents.ts";
 import { writeCodeWorkspace } from "../src/core/codeWorkspace.ts";
@@ -102,6 +102,43 @@ describe("create and add", () => {
 
     expect(result.member.link.startsWith("/")).toBe(false);
     expect(fs.realpathSync(link)).toBe(fs.realpathSync(api));
+  });
+
+  test("adds several targets in one call", () => {
+    const root = tmp();
+    const ws = createWorkspace(path.join(root, "ws")).path;
+
+    const result = addMany(ws, [repo(root, "api"), repo(root, "web")]);
+
+    expect(result.failed).toHaveLength(0);
+    expect(result.added.map((item) => item.member.name)).toEqual(["api", "web"]);
+    expect(readManifest(ws).members).toHaveLength(2);
+  });
+
+  test("keeps going when one target fails", () => {
+    const root = tmp();
+    const ws = createWorkspace(path.join(root, "ws")).path;
+    const missing = path.join(root, "nope");
+
+    const result = addMany(ws, [repo(root, "api"), missing]);
+
+    expect(result.added).toHaveLength(1);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0]?.target).toBe(missing);
+    expect(result.failed[0]?.message).toMatch(/does not exist/);
+    expect(readManifest(ws).members.map((member) => member.name)).toEqual(["api"]);
+  });
+
+  test("reports a duplicate inside the same batch once", () => {
+    const root = tmp();
+    const ws = createWorkspace(path.join(root, "ws")).path;
+    const api = repo(root, "api");
+
+    const result = addMany(ws, [api, api]);
+
+    expect(result.added[0]?.alreadyMember).toBe(false);
+    expect(result.added[1]?.alreadyMember).toBe(true);
+    expect(readManifest(ws).members).toHaveLength(1);
   });
 });
 

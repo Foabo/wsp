@@ -133,6 +133,27 @@ export function addMember(ws: string, target: string, opts: AddOptions = {}): Ad
   };
 }
 
+export interface AddManyResult {
+  added: AddResult[];
+  failed: Array<{ target: string; message: string }>;
+}
+
+/** Adds several targets, collecting failures instead of stopping at the first. */
+export function addMany(ws: string, targets: string[], opts: AddOptions = {}): AddManyResult {
+  const added: AddResult[] = [];
+  const failed: Array<{ target: string; message: string }> = [];
+
+  for (const target of targets) {
+    try {
+      added.push(addMember(ws, target, opts));
+    } catch (error) {
+      failed.push({ target, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  return { added, failed };
+}
+
 export function removeMember(ws: string, name: string): Member {
   const manifest = readManifest(ws);
   const index = manifest.members.findIndex((m) => m.name === name);

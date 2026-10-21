@@ -84,7 +84,7 @@ wsp pick
 ```
 
 ```
-? pick a workspace  up/down move . enter copy . esc cancel
+? pick a workspace  up/down move . / filter . enter copy . esc cancel
 
 > scratch        0 members   2026-10-20 08:00
   incident-1234  0 members   2026-10-15 12:00
@@ -93,7 +93,11 @@ wsp pick
 root  /Users/admin/.ws
 ```
 
-↑/↓ 或 `j`/`k` 移动，回车把路径复制到剪贴板并打印出来，`Esc`、`q`、`Ctrl-C` 取消并返回 130。
+按 `/` 之后标题行变成 `filter: pay`，列表边打边缩。
+
+↑/↓ 或 `j`/`k` 移动，`/` 进入过滤，回车把路径复制到剪贴板并打印出来，`Esc`、`q`、`Ctrl-C` 取消并返回 130。
+
+过滤按名字做子串匹配，输入即时生效；`Ctrl-U` 清空输入，`Backspace` 删一个字并在删空后退回普通模式。`Esc` 在过滤状态下先清空过滤，再按一次才取消。没有匹配时显示 `(no match)`，回车不生效，不会误选。
 
 键盘交互需要真终端。stdin 或 stdout 不是 TTY 时直接报错退出，不会卡在那里等输入；脚本和 agent 用 `wsp pick <name>` 或 `wsp ls --all`。
 
@@ -156,7 +160,7 @@ ripgrep 默认不跟随软链接。实测在工作区根目录 `rg` 找不到成
 
 - `wsp rg` / `wsp fd`：自动带 `--follow` 的搜索包装
 - 不依赖 `$PWD` 的定位方式：脚本里从成员目录执行时也能找到所属工作区
-- 在 picker 里直接看成员，或者按 `/` 过滤
+- picker 行内显示成员名（终端够宽时），帮你在同类工作区里选对
 - Finder Quick Action：右键文件夹加入工作区
 - 本地 Web UI：读 `wsp ls --json`，做浏览和增删
 

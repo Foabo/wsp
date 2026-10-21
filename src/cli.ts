@@ -11,7 +11,7 @@ import { configPath, expandHome, isBareName, loadConfig, resolveNewDir, setRoot 
 import { scanWorkspaces, findWorkspace } from "./core/registry.ts";
 import { pick } from "./core/picker.ts";
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 const VALUE_FLAGS = new Set(["ws", "as"]);
 
 class UsageError extends Error {}

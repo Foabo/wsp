@@ -65,6 +65,33 @@ wsp add ~/src/foo/web --ws ~/.ws/payments
 
 `wsp add` 一次可以接多个目录。其中一个失败不会影响其他：成功的照常建链，失败的在 stderr 逐行列出，退出码是 1。`--as` 只能配单个目标，否则名字会撞在一起。
 
+### path 和 copy
+
+这两个命令输出的是同一个东西，`copy` 多一步写剪贴板。
+
+| 命令 | 输出 |
+| --- | --- |
+| `wsp path` | 工作区根目录 |
+| `wsp path api` | 成员 `api` 的真实路径（软链指向的仓库） |
+| `wsp path api --link` | 工作区里的链接路径 `<ws>/api` |
+| `wsp copy ...` | 同上三种，另外复制到剪贴板 |
+
+`path` 不带名字时**永远给工作区根目录**，即使你正站在成员目录里。要当前成员的真实路径就用 `wsp path api`。
+
+`--link` 给的是“从工作区里面看”的那条路径，也就是软链本身的路径。区别在 `--relative` 建的成员上最明显：真实路径是这台机器上的绝对路径，链接路径在工作区内部相对有效，整个目录搬走也还能用。
+
+常见用法：
+
+```sh
+cd "$(wsp path)"                     # 回到工作区根目录
+code "$(wsp path api)"               # 在编辑器里打开某个仓库
+git -C "$(wsp path api)" status      # 在仓库里跑命令，不用 cd
+wsp copy                             # 把工作区路径放进剪贴板，贴给 agent
+p=$(wsp copy api)                    # stdout 是路径，stderr 才是 "copied via pbcopy"
+```
+
+名字要和 `wsp ls` 里显示的一致，不认路径、不做模糊匹配；写错了会退出 2 并列出所有成员名。
+
 ## 默认根目录
 
 `wsp setup ~/.ws` 之后，`wsp new demo` 建在 `~/.ws/demo`。

@@ -1,6 +1,6 @@
 {
   "name": "wsp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Fast symlink workspaces for multi-repo work with coding agents",
   "type": "module",
   "bin": {

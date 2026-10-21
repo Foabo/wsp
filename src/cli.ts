@@ -8,8 +8,9 @@ import { writeAgentsFile } from "./core/agents.ts";
 import { writeCodeWorkspace } from "./core/codeWorkspace.ts";
 import { copyToClipboard } from "./core/clipboard.ts";
 import { configPath, expandHome, isBareName, loadConfig, resolveNewDir, setRoot } from "./core/config.ts";
+import { scanWorkspaces } from "./core/registry.ts";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const VALUE_FLAGS = new Set(["ws", "as"]);
 
 class UsageError extends Error {}
@@ -168,7 +169,42 @@ function cmdAdd(positional: string[], flags: Record<string, string | true>): num
   return 0;
 }
 
+function formatTime(iso: string): string {
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function cmdLsAll(flags: Record<string, string | true>): number {
+  const { root } = loadConfig();
+  if (!root) throw new UsageError("no default root; run: wsp setup <dir>");
+
+  const entries = scanWorkspaces(root);
+
+  if (flags.json === true) {
+    console.log(JSON.stringify({ root, workspaces: entries }, null, 2));
+    return 0;
+  }
+
+  console.log(`root  ${root}  (${entries.length} workspace${entries.length === 1 ? "" : "s"})`);
+  if (entries.length === 0) {
+    console.log("  (none)  create one: wsp new demo");
+    return 0;
+  }
+
+  const width = Math.max(8, ...entries.map((entry) => entry.relative.length));
+  for (const entry of entries) {
+    const members = `${entry.members} member${entry.members === 1 ? "" : "s"}`;
+    const broken = entry.broken ? "  (broken manifest)" : "";
+    console.log(
+      `  ${entry.relative.padEnd(width)}  ${members.padEnd(10)}  ${formatTime(entry.updatedAt)}  ${entry.path}${broken}`,
+    );
+  }
+  return 0;
+}
+
 function cmdLs(flags: Record<string, string | true>): number {
+  if (flags.all === true) return cmdLsAll(flags);
   const ws = resolveWs(flags);
   const manifest = readManifest(ws);
   const statuses = memberStatuses(ws);
@@ -327,6 +363,7 @@ function help(): string {
     "  wsp add <dir> [--as name]         link a repository into the workspace",
     "                    [--relative]    store a relative link (movable as a bundle)",
     "  wsp ls [--json]                   list members and link state",
+    "  wsp ls --all [--json]             list workspaces under the default root",
     "  wsp rm <name>                     remove a member (never touches the target)",
     "  wsp path [name] [--link]          print the workspace or member path",
     "  wsp copy [name] [--link]          copy that path to the clipboard",

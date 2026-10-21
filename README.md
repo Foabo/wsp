@@ -31,6 +31,7 @@ wsp config [--json]            # 查看全局配置
 wsp add <dir> [--as name]      # 加一个目录或文件
                 [--relative]   # 存相对链接，整个工作区可以打包搬走
 wsp ls [--json]                # 成员和链接状态
+wsp ls --all [--json]          # 默认根目录下的所有工作区
 wsp path [name] [--link]       # 打印工作区路径 / 仓库真实路径 / 链接路径
 wsp copy [name] [--link]       # 把上面的路径复制到剪贴板
 wsp rm <name>                  # 摘掉成员，不碰目标
@@ -57,6 +58,21 @@ wsp agents                     # 重新生成 AGENTS.md 里的托管块
 想临时放别处，写 `./demo` 就行，不用改配置。
 
 配置文件的位置按顺序取：`$WSP_CONFIG`、`$XDG_CONFIG_HOME/wsp/config.json`、`~/.config/wsp/config.json`。内容只有版本号和根目录，可以直接手改。
+
+## 列出所有工作区
+
+```sh
+wsp ls --all
+```
+
+```
+root  /Users/admin/.ws  (3 workspaces)
+  scratch        0 members   2026-10-21 10:34  /Users/admin/.ws/scratch
+  incident-1234  1 member    2026-10-21 10:34  /Users/admin/.ws/incident-1234
+  payments       2 members   2026-10-21 10:34  /Users/admin/.ws/payments
+```
+
+按清单文件的修改时间倒序，最近动过的在最上面。扫描根目录往下三层，遇到工作区就停，不跟进软链接，也不会钻进成员的仓库里；清单坏掉时只标记 `(broken manifest)`，不影响其他条目。`--json` 给脚本和以后的 UI 用。
 
 每个工作区里有三样生成物：
 
@@ -107,14 +123,15 @@ ripgrep 默认不跟随软链接。实测在工作区根目录 `rg` 找不到成
 ## 已知边界
 
 - 不是 monorepo：跨仓依赖、统一构建、统一 lockfile 都不管。
-- macOS 上 `process.cwd()` 返回物理路径：站在 `space/api` 里执行时，Node 和 Bun 拿到的都是 `repos/api`。`wsp` 靠 shell 的 `$PWD` 找回工作区，脚本环境不设 `PWD` 时请用 `--ws`。
+- macOS 上 `process.cwd()` 返回物理路径：站在 `space/api` 里执行时，Node 和 Bun 拿到的都是 `repos/api`。`wsp` 靠 shell 的 `$PWD` 找回工作区，成员里任意深度的目录都行；脚本环境不设 `PWD` 时请用 `--ws`。
 - 备份和同步工具对软链接的处理不一致，iCloud、Time Machine 可能跳过或单独存储。
 - 工作区根的 `git init` 是坑，`doctor` 只警告，不阻止。
 
 ## 路线图
 
 - `wsp rg` / `wsp fd`：自动带 `--follow` 的搜索包装
-- 全局 registry：`wsp ls --all`，以及在成员目录里直接定位所属工作区
+- 按名字打开工作区：`wsp open payments`，省掉从列表里复制路径这一步
+- 不依赖 `$PWD` 的定位方式：脚本里从成员目录执行时也能找到所属工作区
 - Finder Quick Action：右键文件夹加入工作区
 - 本地 Web UI：读 `wsp ls --json`，做浏览和增删
 

@@ -3,7 +3,8 @@
 用软链接把多个仓库拼成一个目录，一条命令交给 agent。
 
 ```sh
-wsp new ~/.ws/payments ~/src/github/foo/api ~/src/github/foo/web
+wsp setup ~/.ws                                   # 一次性：默认根目录
+wsp new payments ~/src/github/foo/api ~/src/github/foo/web
 cd ~/.ws/payments
 wsp copy          # 路径已经在你剪贴板里
 ```
@@ -25,6 +26,8 @@ wsp --version
 
 ```sh
 wsp new <dir> [repo...]        # 建工作区，可顺手把仓库链进来
+wsp setup <dir>                # 设默认根目录，不存在会创建
+wsp config [--json]            # 查看全局配置
 wsp add <dir> [--as name]      # 加一个目录或文件
                 [--relative]   # 存相对链接，整个工作区可以打包搬走
 wsp ls [--json]                # 成员和链接状态
@@ -37,6 +40,23 @@ wsp agents                     # 重新生成 AGENTS.md 里的托管块
 ```
 
 查找工作区的顺序：`--ws <dir>` → `$WSP_WORKSPACE` → 从当前目录向上找 `.wsp.json`。
+
+## 默认根目录
+
+`wsp setup ~/.ws` 之后，`wsp new demo` 建在 `~/.ws/demo`。
+
+规则只有一条：**裸名字走根目录，带路径的按你写的走。**
+
+| 输入 | 落在哪里 |
+| --- | --- |
+| `wsp new demo` | `<root>/demo` |
+| `wsp new ./demo` | 当前目录下的 `demo` |
+| `wsp new ../demo` | 上一级目录下的 `demo` |
+| `wsp new /tmp/demo` | `/tmp/demo` |
+
+想临时放别处，写 `./demo` 就行，不用改配置。
+
+配置文件的位置按顺序取：`$WSP_CONFIG`、`$XDG_CONFIG_HOME/wsp/config.json`、`~/.config/wsp/config.json`。内容只有版本号和根目录，可以直接手改。
 
 每个工作区里有三样生成物：
 

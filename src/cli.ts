@@ -7,8 +7,9 @@ import { findWorkspaceRoot, realpathOrNull } from "./core/paths.ts";
 import { writeAgentsFile } from "./core/agents.ts";
 import { writeCodeWorkspace } from "./core/codeWorkspace.ts";
 import { copyToClipboard } from "./core/clipboard.ts";
+import { configPath, expandHome, isBareName, loadConfig, resolveNewDir, setRoot } from "./core/config.ts";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const VALUE_FLAGS = new Set(["ws", "as"]);
 
 class UsageError extends Error {}
@@ -112,9 +113,10 @@ function cmdNew(positional: string[], flags: Record<string, string | true>): num
   const dir = positional[0];
   if (!dir) throw new UsageError("new needs a directory: wsp new <dir>");
 
-  const base = typeof flags.ws === "string" ? path.resolve(flags.ws) : process.cwd();
-  const abs = path.resolve(base, dir);
-  const targets = positional.slice(1).map((target) => path.resolve(base, target));
+  const base = typeof flags.ws === "string" ? flags.ws : undefined;
+  const resolved = resolveNewDir(dir, process.cwd(), base);
+  const abs = resolved.dir;
+  const targets = positional.slice(1).map((target) => path.resolve(expandHome(target)));
 
   const result = createWorkspace(abs);
   const added = targets.map((target) =>
@@ -127,6 +129,9 @@ function cmdNew(positional: string[], flags: Record<string, string | true>): num
     console.log(`workspace ${abs} (already exists)`);
   } else {
     console.log(`created ${abs}`);
+    if (!resolved.fromRoot && isBareName(dir) && !loadConfig().root) {
+      console.log("note: no default root yet; set one with: wsp setup ~/.wsp");
+    }
   }
   for (const item of added) {
     console.log(`  member    ${item.member.name} -> ${item.member.target}`);
@@ -238,6 +243,39 @@ function cmdRm(positional: string[], flags: Record<string, string | true>): numb
   return 0;
 }
 
+function printConfig(): void {
+  const config = loadConfig();
+  console.log(`config  ${configPath()}`);
+  console.log(`root    ${config.root ?? "(not set)"}`);
+}
+
+function cmdSetup(positional: string[]): number {
+  const dir = positional[0];
+  if (!dir) {
+    printConfig();
+    console.log("");
+    console.log("usage: wsp setup <dir>    set the default root for new workspaces");
+    return 0;
+  }
+
+  const result = setRoot(dir);
+  console.log(`root    ${result.root}${result.created ? "  (created)" : ""}`);
+  console.log(`config  ${result.configPath}`);
+  console.log("");
+  console.log(`next: wsp new demo    ->  ${path.join(result.root, "demo")}`);
+  return 0;
+}
+
+function cmdConfig(flags: Record<string, string | true>): number {
+  if (flags.json === true) {
+    const config = loadConfig();
+    console.log(JSON.stringify({ configPath: configPath(), ...config }, null, 2));
+    return 0;
+  }
+  printConfig();
+  return 0;
+}
+
 function cmdDoctor(flags: Record<string, string | true>): number {
   const ws = resolveWs(flags);
   const manifest = readManifest(ws);
@@ -284,6 +322,8 @@ function help(): string {
     "",
     "usage:",
     "  wsp new <dir> [repo...]           create a workspace, optionally linking repos",
+    "  wsp setup <dir>                   set the default root for new workspaces",
+    "  wsp config [--json]               show the global configuration",
     "  wsp add <dir> [--as name]         link a repository into the workspace",
     "                    [--relative]    store a relative link (movable as a bundle)",
     "  wsp ls [--json]                   list members and link state",
@@ -295,6 +335,10 @@ function help(): string {
     "  wsp agents                        rewrite the wsp block in AGENTS.md",
     "",
     "workspace lookup: --ws <dir>, $WSP_WORKSPACE, then the nearest parent with .wsp.json",
+    "",
+    "a bare name in `wsp new` lands under the default root from `wsp setup`;",
+    "pass ./x, ../x or an absolute path to place it anywhere else.",
+    "config file: $WSP_CONFIG, $XDG_CONFIG_HOME/wsp/config.json, or ~/.config/wsp/config.json",
     "",
     "members are symlinked, so the workspace costs a few bytes; copies of the",
     "workspace copy the links, not the repositories.",
@@ -326,6 +370,10 @@ function main(argv: string[]): number {
       }
     case "new":
       return cmdNew(rest, flags);
+    case "setup":
+      return cmdSetup(rest);
+    case "config":
+      return cmdConfig(flags);
     case "add":
       return cmdAdd(rest, flags);
     case "ls":

@@ -24,6 +24,11 @@ const DOWN = ["\x1b[B", "\x1bOB"];
 
 const MAX_VISIBLE = 15;
 
+function fit(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(0, max - 1))}…`;
+}
+
 /**
  * Single-select prompt drawn inline (no alternate screen), so the list stays
  * in the scrollback after choosing. `/` filters by substring.
@@ -65,6 +70,8 @@ export async function pick(options: PickOptions): Promise<PickItem | null> {
     if (list.length === 0) {
       lines.push("  \x1b[2m(no match)\x1b[0m");
     } else {
+      const columns = stdout.columns && stdout.columns > 0 ? stdout.columns : 80;
+      const budget = columns - 4 - labelWidth - 2;
       const end = Math.min(list.length, offset + MAX_VISIBLE);
       for (let index = offset; index < end; index += 1) {
         const item = list[index];
@@ -73,7 +80,8 @@ export async function pick(options: PickOptions): Promise<PickItem | null> {
         const marker = active ? "\x1b[36m>\x1b[0m" : " ";
         const label = item.label.padEnd(labelWidth);
         const shown = active ? `\x1b[1m${label}\x1b[0m` : label;
-        const detail = item.detail ? `  \x1b[2m${item.detail}\x1b[0m` : "";
+        const text = item.detail && budget >= 16 ? fit(item.detail, budget) : "";
+        const detail = text ? `  \x1b[2m${text}\x1b[0m` : "";
         lines.push(`${marker} ${shown}${detail}`);
       }
     }

@@ -86,14 +86,16 @@ wsp pick
 ```
 ? pick a workspace  up/down move . / filter . enter copy . esc cancel
 
-> scratch        0 members   2026-10-20 08:00
-  incident-1234  0 members   2026-10-15 12:00
-  payments       0 members   2026-10-01 09:00
+> scratch        0 members
+  incident-1234  1 member · code main 14m
+  payments       2 members · api main 14m · web main 14m
 
 root  /Users/admin/.ws
 ```
 
-按 `/` 之后标题行变成 `filter: pay`，列表边打边缩。
+每行后面是成员的 git 状态：分支加最近提交时间。最多显示三个成员，其余折叠成 `+N`；游离 HEAD 显示 `@1a2b3c`，不是仓库显示 `-`，空仓库显示 `(empty)`。时间用相对单位，超过一个月显示日期。
+
+按 `/` 之后标题行变成 `filter: pay`，列表边打边缩。`ls --all` 不跑 git，只给成员数和清单时间，脚本用它更划算。
 
 ↑/↓ 或 `j`/`k` 移动，`/` 进入过滤，回车把路径复制到剪贴板并打印出来，`Esc`、`q`、`Ctrl-C` 取消并返回 130。
 
@@ -160,7 +162,7 @@ ripgrep 默认不跟随软链接。实测在工作区根目录 `rg` 找不到成
 
 - `wsp rg` / `wsp fd`：自动带 `--follow` 的搜索包装
 - 不依赖 `$PWD` 的定位方式：脚本里从成员目录执行时也能找到所属工作区
-- picker 行内显示成员名（终端够宽时），帮你在同类工作区里选对
+- `wsp ls --all --git`：让脚本和 UI 拿到与 picker 相同的分支和提交摘要
 - Finder Quick Action：右键文件夹加入工作区
 - 本地 Web UI：读 `wsp ls --json`，做浏览和增删
 

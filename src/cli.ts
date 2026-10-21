@@ -8,10 +8,11 @@ import { writeAgentsFile } from "./core/agents.ts";
 import { writeCodeWorkspace } from "./core/codeWorkspace.ts";
 import { copyToClipboard } from "./core/clipboard.ts";
 import { configPath, expandHome, isBareName, loadConfig, resolveNewDir, setRoot } from "./core/config.ts";
-import { scanWorkspaces, findWorkspace } from "./core/registry.ts";
+import { scanWorkspaces, findWorkspace, type WorkspaceEntry } from "./core/registry.ts";
 import { pick } from "./core/picker.ts";
+import { describeGit, readGitInfo } from "./core/git.ts";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 const VALUE_FLAGS = new Set(["ws", "as"]);
 
 class UsageError extends Error {}
@@ -272,6 +273,27 @@ function cmdCopy(positional: string[], flags: Record<string, string | true>): nu
   return printAndCopy(output);
 }
 
+async function describeEntry(entry: WorkspaceEntry): Promise<string> {
+  if (entry.broken) return "broken manifest";
+
+  let manifest: Manifest;
+  try {
+    manifest = readManifest(entry.path);
+  } catch {
+    return "broken manifest";
+  }
+  if (manifest.members.length === 0) return "0 members";
+
+  const shown = manifest.members.slice(0, 3);
+  const parts = await Promise.all(
+    shown.map(async (member) => `${member.name} ${describeGit(await readGitInfo(member.target))}`),
+  );
+
+  const count = `${manifest.members.length} member${manifest.members.length === 1 ? "" : "s"}`;
+  const rest = manifest.members.length - shown.length;
+  return `${count} · ${parts.join(" · ")}${rest > 0 ? ` · +${rest}` : ""}`;
+}
+
 async function cmdPick(positional: string[], flags: Record<string, string | true>): Promise<number> {
   const { root } = loadConfig();
   if (!root) throw new UsageError("no default root; run: wsp setup <dir>");
@@ -287,13 +309,17 @@ async function cmdPick(positional: string[], flags: Record<string, string | true
     throw new UsageError("wsp pick needs a terminal; use: wsp ls --all, or: wsp pick <name>");
   }
 
-  const picked = await pick({
-    title: "pick a workspace",
-    items: entries.map((entry) => ({
+  const items = await Promise.all(
+    entries.map(async (entry) => ({
       label: entry.relative,
-      detail: `${entry.members} member${entry.members === 1 ? "" : "s"}   ${formatTime(entry.updatedAt)}${entry.broken ? "   (broken)" : ""}`,
+      detail: await describeEntry(entry),
       value: entry.path,
     })),
+  );
+
+  const picked = await pick({
+    title: "pick a workspace",
+    items,
     footer: `root  ${root}`,
   });
 

@@ -8,9 +8,10 @@ import { writeAgentsFile } from "./core/agents.ts";
 import { writeCodeWorkspace } from "./core/codeWorkspace.ts";
 import { copyToClipboard } from "./core/clipboard.ts";
 import { configPath, expandHome, isBareName, loadConfig, resolveNewDir, setRoot } from "./core/config.ts";
-import { scanWorkspaces } from "./core/registry.ts";
+import { scanWorkspaces, findWorkspace } from "./core/registry.ts";
+import { pick } from "./core/picker.ts";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const VALUE_FLAGS = new Set(["ws", "as"]);
 
 class UsageError extends Error {}
@@ -255,16 +256,52 @@ function cmdPath(positional: string[], flags: Record<string, string | true>): nu
   return 0;
 }
 
+function printAndCopy(target: string): number {
+  console.log(target);
+  const tool = copyToClipboard(target);
+  if (!tool) process.stderr.write("wsp: no clipboard tool found; the path is printed above\n");
+  else process.stderr.write(`copied via ${tool}\n`);
+  return 0;
+}
+
 function cmdCopy(positional: string[], flags: Record<string, string | true>): number {
   const ws = resolveWs(flags);
   const name = positional[0];
   const output = name ? (flags.link === true ? path.join(ws, name) : findMember(ws, name).target) : ws;
 
-  console.log(output);
-  const tool = copyToClipboard(output);
-  if (!tool) console.error("wsp: no clipboard tool found; the path is printed above");
-  else console.error(`copied via ${tool}`);
-  return 0;
+  return printAndCopy(output);
+}
+
+async function cmdPick(positional: string[], flags: Record<string, string | true>): Promise<number> {
+  const { root } = loadConfig();
+  if (!root) throw new UsageError("no default root; run: wsp setup <dir>");
+
+  const name = positional[0];
+  if (name) return printAndCopy(findWorkspace(root, name).path);
+
+  const entries = scanWorkspaces(root);
+  if (entries.length === 0) {
+    throw new UsageError(`no workspaces under ${root}; create one: wsp new demo`);
+  }
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new UsageError("wsp pick needs a terminal; use: wsp ls --all, or: wsp pick <name>");
+  }
+
+  const picked = await pick({
+    title: "pick a workspace",
+    items: entries.map((entry) => ({
+      label: entry.relative,
+      detail: `${entry.members} member${entry.members === 1 ? "" : "s"}   ${formatTime(entry.updatedAt)}${entry.broken ? "   (broken)" : ""}`,
+      value: entry.path,
+    })),
+    footer: `root  ${root}`,
+  });
+
+  if (!picked) {
+    process.stderr.write("cancelled\n");
+    return 130;
+  }
+  return printAndCopy(picked.value);
 }
 
 function cmdRm(positional: string[], flags: Record<string, string | true>): number {
@@ -367,6 +404,7 @@ function help(): string {
     "  wsp rm <name>                     remove a member (never touches the target)",
     "  wsp path [name] [--link]          print the workspace or member path",
     "  wsp copy [name] [--link]          copy that path to the clipboard",
+    "  wsp pick [name]                   choose a workspace under the root, copy its path",
     "  wsp doctor [--json]               check links, manifest and pitfalls",
     "  wsp code                          rewrite <name>.code-workspace",
     "  wsp agents                        rewrite the wsp block in AGENTS.md",
@@ -382,7 +420,7 @@ function help(): string {
   ].join("\n");
 }
 
-function main(argv: string[]): number {
+function main(argv: string[]): number | Promise<number> {
   const { positional, flags } = parse(argv);
   const command = positional[0];
 
@@ -423,6 +461,8 @@ function main(argv: string[]): number {
       return cmdPath(rest, flags);
     case "copy":
       return cmdCopy(rest, flags);
+    case "pick":
+      return cmdPick(rest, flags);
     case "doctor":
       return cmdDoctor(flags);
     case "code":
@@ -435,7 +475,7 @@ function main(argv: string[]): number {
 }
 
 try {
-  process.exit(main(process.argv.slice(2)));
+  process.exit(await main(process.argv.slice(2)));
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`wsp: ${message}`);

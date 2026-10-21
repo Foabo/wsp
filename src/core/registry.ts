@@ -69,6 +69,18 @@ export function scanWorkspaces(root: string): WorkspaceEntry[] {
   return found;
 }
 
+export function findWorkspace(root: string, name: string): WorkspaceEntry {
+  const matches = scanWorkspaces(root).filter((entry) => entry.relative === name || entry.name === name);
+
+  if (matches.length === 0) {
+    throw new Error(`no workspace named ${name} under ${root}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`ambiguous name ${name}: ${matches.map((entry) => entry.relative).join(", ")}`);
+  }
+  return matches[0] as WorkspaceEntry;
+}
+
 function describe(root: string, dir: string): WorkspaceEntry {
   const relative = path.relative(root, dir) || ".";
   const stat = fs.statSync(path.join(dir, ".wsp.json"));

@@ -34,6 +34,7 @@ wsp ls [--json]                # 成员和链接状态
 wsp ls --all [--json]          # 默认根目录下的所有工作区
 wsp path [name] [--link]       # 打印工作区路径 / 仓库真实路径 / 链接路径
 wsp copy [name] [--link]       # 把上面的路径复制到剪贴板
+wsp pick [name]                # 交互选一个工作区，回车复制路径
 wsp rm <name>                  # 摘掉成员，不碰目标
 wsp doctor [--json]            # 检查断链、未登记链接、坑
 wsp code                       # 重新生成 <name>.code-workspace
@@ -73,6 +74,30 @@ root  /Users/admin/.ws  (3 workspaces)
 ```
 
 按清单文件的修改时间倒序，最近动过的在最上面。扫描根目录往下三层，遇到工作区就停，不跟进软链接，也不会钻进成员的仓库里；清单坏掉时只标记 `(broken manifest)`，不影响其他条目。`--json` 给脚本和以后的 UI 用。
+
+## 交互选择
+
+`wsp ls --all` 的输出是一次性的，适合脚本和 agent。要在终端里挑一个：
+
+```sh
+wsp pick
+```
+
+```
+? pick a workspace  up/down move . enter copy . esc cancel
+
+> scratch        0 members   2026-10-20 08:00
+  incident-1234  0 members   2026-10-15 12:00
+  payments       0 members   2026-10-01 09:00
+
+root  /Users/admin/.ws
+```
+
+↑/↓ 或 `j`/`k` 移动，回车把路径复制到剪贴板并打印出来，`Esc`、`q`、`Ctrl-C` 取消并返回 130。
+
+键盘交互需要真终端。stdin 或 stdout 不是 TTY 时直接报错退出，不会卡在那里等输入；脚本和 agent 用 `wsp pick <name>` 或 `wsp ls --all`。
+
+实现上没有引入依赖：原生模式读按键，逐帧重绘；选中后把列表擦掉，路径留在光标原来的位置，粘贴完就能接着干活。
 
 每个工作区里有三样生成物：
 
@@ -130,8 +155,8 @@ ripgrep 默认不跟随软链接。实测在工作区根目录 `rg` 找不到成
 ## 路线图
 
 - `wsp rg` / `wsp fd`：自动带 `--follow` 的搜索包装
-- 按名字打开工作区：`wsp open payments`，省掉从列表里复制路径这一步
 - 不依赖 `$PWD` 的定位方式：脚本里从成员目录执行时也能找到所属工作区
+- 在 picker 里直接看成员，或者按 `/` 过滤
 - Finder Quick Action：右键文件夹加入工作区
 - 本地 Web UI：读 `wsp ls --json`，做浏览和增删
 

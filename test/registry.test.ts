@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { createWorkspace } from "../src/core/workspace.ts";
-import { scanWorkspaces } from "../src/core/registry.ts";
+import { findWorkspace, scanWorkspaces } from "../src/core/registry.ts";
 
 const roots: string[] = [];
 
@@ -82,5 +82,28 @@ describe("scanWorkspaces", () => {
 
   test("fails when the root is missing", () => {
     expect(() => scanWorkspaces(path.join(tmp(), "nope"))).toThrow(/root does not exist/);
+  });
+});
+
+describe("findWorkspace", () => {
+  test("finds by entry name and by relative path", () => {
+    const root = tmp();
+    createWorkspace(path.join(root, "payments"));
+    createWorkspace(path.join(root, "team", "incident"));
+
+    expect(findWorkspace(root, "payments").relative).toBe("payments");
+    expect(findWorkspace(root, path.join("team", "incident")).relative).toBe(path.join("team", "incident"));
+    expect(findWorkspace(root, "incident").path).toBe(path.join(root, "team", "incident"));
+  });
+
+  test("rejects an unknown name", () => {
+    expect(() => findWorkspace(tmp(), "nope")).toThrow(/no workspace named nope/);
+  });
+
+  test("rejects an ambiguous name", () => {
+    const root = tmp();
+    createWorkspace(path.join(root, "a", "dup"));
+    createWorkspace(path.join(root, "b", "dup"));
+    expect(() => findWorkspace(root, "dup")).toThrow(/ambiguous/);
   });
 });

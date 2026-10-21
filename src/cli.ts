@@ -12,7 +12,7 @@ import { scanWorkspaces, findWorkspace, type WorkspaceEntry } from "./core/regis
 import { pick } from "./core/picker.ts";
 import { describeGit, readGitInfo } from "./core/git.ts";
 
-const VERSION = "0.7.0";
+const VERSION = "0.7.1";
 const VALUE_FLAGS = new Set(["ws", "as"]);
 
 class UsageError extends Error {}
@@ -432,22 +432,27 @@ function help(): string {
     "wsp - fast symlink workspaces for multi-repo work",
     "",
     "usage:",
-    "  wsp new <dir> [repo...]           create a workspace, optionally linking repos",
+    "",
+    "any directory",
     "  wsp setup <dir>                   set the default root for new workspaces",
     "  wsp config [--json]               show the global configuration",
+    "  wsp new <dir> [repo...]           create a workspace, optionally linking repos",
+    "  wsp ls --all [--json]             list workspaces under the default root",
+    "  wsp pick [name]                   choose a workspace under the root, copy its path",
+    "",
+    "inside a workspace, or anywhere with --ws <dir>",
     "  wsp add <dir>... [--as name]      link repositories into the workspace",
     "                    [--relative]    store a relative link (movable as a bundle)",
     "  wsp ls [--json]                   list members and link state",
-    "  wsp ls --all [--json]             list workspaces under the default root",
     "  wsp rm <name>                     remove a member (never touches the target)",
     "  wsp path [name] [--link]          print the workspace or member path",
     "  wsp copy [name] [--link]          copy that path to the clipboard",
-    "  wsp pick [name]                   choose a workspace under the root, copy its path",
     "  wsp doctor [--json]               check links, manifest and pitfalls",
     "  wsp code                          rewrite <name>.code-workspace",
     "  wsp agents                        rewrite the wsp block in AGENTS.md",
     "",
     "workspace lookup: --ws <dir>, $WSP_WORKSPACE, then the nearest parent with .wsp.json",
+    "  found from the workspace root and from member links, not the real repo path",
     "",
     "a bare name in `wsp new` lands under the default root from `wsp setup`;",
     "pass ./x, ../x or an absolute path to place it anywhere else.",

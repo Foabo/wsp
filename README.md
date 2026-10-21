@@ -24,24 +24,44 @@ wsp --version
 
 ## 命令
 
+分两组：上面一组在任意目录都能跑，下面一组要先有工作区。
+
 ```sh
-wsp new <dir> [repo...]        # 建工作区，可顺手把仓库链进来
+# 任意目录
 wsp setup <dir>                # 设默认根目录，不存在会创建
 wsp config [--json]            # 查看全局配置
+wsp new <dir> [repo...]        # 建工作区，可顺手把仓库链进来
+wsp ls --all [--json]          # 默认根目录下的所有工作区
+wsp pick [name]                # 交互选一个工作区，回车复制路径
+
+# 工作区里
 wsp add <dir>... [--as name]   # 一次加多个目录
                 [--relative]   # 存相对链接，整个工作区可以打包搬走
 wsp ls [--json]                # 成员和链接状态
-wsp ls --all [--json]          # 默认根目录下的所有工作区
 wsp path [name] [--link]       # 打印工作区路径 / 仓库真实路径 / 链接路径
 wsp copy [name] [--link]       # 把上面的路径复制到剪贴板
-wsp pick [name]                # 交互选一个工作区，回车复制路径
 wsp rm <name>                  # 摘掉成员，不碰目标
 wsp doctor [--json]            # 检查断链、未登记链接、坑
 wsp code                       # 重新生成 <name>.code-workspace
 wsp agents                     # 重新生成 AGENTS.md 里的托管块
 ```
 
-查找工作区的顺序：`--ws <dir>` → `$WSP_WORKSPACE` → 从当前目录向上找 `.wsp.json`。
+「工作区里」不要求站在工作区根目录，`cd` 到成员目录也算——但要走工作区里的那个软链进去，因为 `wsp` 是从 `$PWD` 往上找 `.wsp.json` 的。直接 `cd` 到仓库真实路径（软链指向的那头）找不到工作区：
+
+```sh
+cd ~/.ws/payments && wsp ls          # 工作区根目录，可以
+cd ~/.ws/payments/api && wsp ls      # 从软链进成员目录，可以
+cd ~/src/foo/api && wsp ls           # 仓库真实路径，不行
+```
+
+不想 `cd` 就用 `--ws` 或 `$WSP_WORKSPACE` 指过去，两者对所有「工作区里」的命令都生效：
+
+```sh
+wsp ls --ws ~/.ws/payments
+wsp add ~/src/foo/web --ws ~/.ws/payments
+```
+
+查找顺序：`--ws <dir>` → `$WSP_WORKSPACE` → 从当前目录向上找 `.wsp.json`。找不到时报错退出（码 2），不会猜一个工作区。
 
 `wsp add` 一次可以接多个目录。其中一个失败不会影响其他：成功的照常建链，失败的在 stderr 逐行列出，退出码是 1。`--as` 只能配单个目标，否则名字会撞在一起。
 

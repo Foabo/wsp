@@ -35,6 +35,30 @@ afterEach(() => {
   for (const dir of roots.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
+describe("where commands run", () => {
+  test("ls needs a workspace", () => {
+    const root = tmp();
+    const result = wsp(root, "ls");
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("no workspace here");
+  });
+
+  test("ls --ws works from outside", () => {
+    const root = tmp();
+    const api = repo(root, "api");
+    const created = wsp(root, "new", path.join(root, "ws"));
+    expect(created.status).toBe(0);
+    const ws = path.join(root, "ws");
+    expect(wsp(ws, "add", api).status).toBe(0);
+
+    const result = wsp(root, "ls", "--ws", ws);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("api");
+  });
+});
+
 describe("wsp add", () => {
   test("links every target given in one command", () => {
     const root = tmp();

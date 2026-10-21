@@ -1,0 +1,23 @@
+{
+  "name": "wsp",
+  "version": "0.1.0",
+  "description": "Fast symlink workspaces for multi-repo work with coding agents",
+  "type": "module",
+  "bin": {
+    "wsp": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build --compile --outfile dist/wsp src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.9.0"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ]
+}
